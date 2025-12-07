@@ -134,7 +134,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             due: {
               type: "string",
-              description: "Due date",
+              description:
+                "Due date in any common format. Examples: '2025-12-15', '12/15/2025', '2025-12-15T00:00:00Z'. Will be converted to RFC 3339 format automatically.",
             },
           },
           required: ["title"],
@@ -201,7 +202,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             due: {
               type: "string",
-              description: "Due date",
+              description:
+                "Due date in any common format. Examples: '2025-12-15', '12/15/2025', '2025-12-15T00:00:00Z'. Will be converted to RFC 3339 format automatically.",
             },
           },
           required: ["id"],

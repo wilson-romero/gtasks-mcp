@@ -53,6 +53,36 @@ task: taskId,
 
 **Solución:** Se eliminó `uri` del schema y de los campos requeridos.
 
+### 2.6 Bug en campo `due` (fecha de vencimiento) - Tasks.ts
+
+**Problema:** No se podían crear ni actualizar tareas con fecha de vencimiento (`due`). Las tareas se creaban pero sin la fecha, impidiendo que aparecieran correctamente en el calendario.
+
+**Causa:** La API de Google Tasks requiere el campo `due` en formato **RFC 3339** (`YYYY-MM-DDTHH:MM:SS.000Z`), pero el código pasaba el valor directamente sin conversión.
+
+**Solución:** Se agregó la función `parseDueDate()` que convierte automáticamente múltiples formatos de fecha al formato RFC 3339:
+
+```typescript
+private static parseDueDate(dateInput: string | undefined): string | undefined {
+  // Acepta: 2025-12-15, 12/15/2025, 2025-12-15T00:00:00Z, etc.
+  // Retorna: 2025-12-15T00:00:00.000Z
+}
+```
+
+**Formatos soportados:**
+
+| Formato | Ejemplo |
+|---------|---------|
+| ISO | `2025-12-15` |
+| RFC 3339 | `2025-12-15T00:00:00Z` |
+| US (MM/DD/YYYY) | `12/15/2025` |
+| EU (DD-MM-YYYY) | `15-12-2025` |
+| YYYY/MM/DD | `2025/12/15` |
+| Texto natural | `December 15, 2025` |
+
+**Archivos modificados:**
+- `src/Tasks.ts`: Agregada función `parseDueDate()`, modificados métodos `create()` y `update()`
+- `src/index.ts`: Actualizada descripción del campo `due` en schemas de `create` y `update`
+
 ---
 
 ## 3. Mejoras Implementadas
@@ -164,7 +194,7 @@ Ahora el método `list()` acepta un parámetro opcional `taskListId` para listar
 
 ## 7. Notas Importantes
 
-- **Formato de fechas:** Las fechas deben estar en formato RFC3339: `2025-12-15T00:00:00.000Z`
+- **Formato de fechas:** Las fechas se convierten automáticamente a RFC 3339. Puedes usar: `2025-12-15`, `12/15/2025`, `2025-12-15T00:00:00Z`, o texto natural como `December 15, 2025`
 
 - **Ubicación de Claude Extensions:** Claude Desktop usa los archivos en `%APPDATA%\Claude\Claude Extensions\`, no el directorio de desarrollo
 

@@ -85,6 +85,80 @@ export class TaskResources {
 }
 
 export class TaskActions {
+  /**
+   * Parses various date formats and converts to RFC 3339 format required by Google Tasks API.
+   * Google Tasks API only uses the date portion; time is discarded.
+   *
+   * @param dateInput - Date string in various formats or undefined
+   * @returns RFC 3339 formatted date string (YYYY-MM-DDTHH:MM:SS.000Z) or undefined
+   * @throws Error if the date is invalid
+   */
+  private static parseDueDate(dateInput: string | undefined): string | undefined {
+    if (!dateInput || dateInput.trim() === "") {
+      return undefined;
+    }
+
+    const input = dateInput.trim();
+    let parsedDate: Date | null = null;
+
+    // Pattern 1: Already RFC 3339 format (2025-12-15T00:00:00.000Z or 2025-12-15T00:00:00Z)
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(input)) {
+      parsedDate = new Date(input);
+    }
+    // Pattern 2: ISO date only (2025-12-15)
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+      parsedDate = new Date(input + "T00:00:00.000Z");
+    }
+    // Pattern 3: US format MM/DD/YYYY
+    else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(input)) {
+      const [month, day, year] = input.split("/").map(Number);
+      parsedDate = new Date(Date.UTC(year, month - 1, day));
+    }
+    // Pattern 4: Format with dashes DD-MM-YYYY or MM-DD-YYYY
+    else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(input)) {
+      const [first, second, year] = input.split("-").map(Number);
+      // If first number > 12, assume DD-MM-YYYY (European)
+      if (first > 12) {
+        parsedDate = new Date(Date.UTC(year, second - 1, first));
+      } else {
+        // Assume MM-DD-YYYY (US)
+        parsedDate = new Date(Date.UTC(year, first - 1, second));
+      }
+    }
+    // Pattern 5: YYYY/MM/DD
+    else if (/^\d{4}\/\d{2}\/\d{2}$/.test(input)) {
+      const [year, month, day] = input.split("/").map(Number);
+      parsedDate = new Date(Date.UTC(year, month - 1, day));
+    }
+    // Pattern 6: Natural language with Date.parse() as fallback
+    else {
+      const timestamp = Date.parse(input);
+      if (!isNaN(timestamp)) {
+        parsedDate = new Date(timestamp);
+      }
+    }
+
+    // Validate the parsed date
+    if (!parsedDate || isNaN(parsedDate.getTime())) {
+      throw new Error(
+        `Invalid date format: "${dateInput}". Please use ISO format (YYYY-MM-DD) or RFC 3339 (YYYY-MM-DDTHH:MM:SSZ).`
+      );
+    }
+
+    // Validate date is reasonable (not in the far past or future)
+    const year = parsedDate.getUTCFullYear();
+    if (year < 1970 || year > 2100) {
+      throw new Error(
+        `Invalid date year: ${year}. Year must be between 1970 and 2100.`
+      );
+    }
+
+    // Convert to RFC 3339 format with time set to midnight UTC
+    const isoString = parsedDate.toISOString();
+    const dateOnly = isoString.split("T")[0];
+    return `${dateOnly}T00:00:00.000Z`;
+  }
+
   private static formatTask(task: tasks_v1.Schema$Task) {
     return `${task.title}\n (Due: ${task.due || "Not set"}) - Notes: ${task.notes} - ID: ${task.id} - Status: ${task.status} - URI: ${task.selfLink} - Hidden: ${task.hidden} - Parent: ${task.parent} - Deleted?: ${task.deleted} - Completed Date: ${task.completed} - Position: ${task.position} - Updated Date: ${task.updated} - ETag: ${task.etag} - Links: ${task.links} - Kind: ${task.kind}}`;
   }
@@ -130,10 +204,13 @@ export class TaskActions {
       throw new Error("Task title is required");
     }
 
-    const task = {
+    // Parse and convert due date to RFC 3339 format
+    const parsedDue = this.parseDueDate(taskDue);
+
+    const task: tasks_v1.Schema$Task = {
       title: taskTitle,
       notes: taskNotes,
-      due: taskDue,
+      due: parsedDue,
     };
 
     const taskResponse = await tasks.tasks.insert({
@@ -145,7 +222,7 @@ export class TaskActions {
       content: [
         {
           type: "text",
-          text: `Task created: ${taskResponse.data.title}`,
+          text: `Task created: ${taskResponse.data.title}${parsedDue ? ` (Due: ${parsedDue})` : ""}`,
         },
       ],
       isError: false,
@@ -165,12 +242,15 @@ export class TaskActions {
       throw new Error("Task ID is required");
     }
 
-    const task = {
+    // Parse and convert due date to RFC 3339 format
+    const parsedDue = this.parseDueDate(taskDue);
+
+    const task: tasks_v1.Schema$Task = {
       id: taskId,
       title: taskTitle,
       notes: taskNotes,
       status: taskStatus,
-      due: taskDue,
+      due: parsedDue,
     };
 
     const taskResponse = await tasks.tasks.update({
@@ -183,7 +263,7 @@ export class TaskActions {
       content: [
         {
           type: "text",
-          text: `Task updated: ${taskResponse.data.title}`,
+          text: `Task updated: ${taskResponse.data.title}${parsedDue ? ` (Due: ${parsedDue})` : ""}`,
         },
       ],
       isError: false,
