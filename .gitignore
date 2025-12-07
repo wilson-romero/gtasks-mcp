@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+dist/
+
+# Credentials - NEVER commit these
+.gtasks-server-credentials.json
+gcp-oauth.keys.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Optional npm cache
+.npm
+
+# TypeScript cache
+*.tsbuildinfo
